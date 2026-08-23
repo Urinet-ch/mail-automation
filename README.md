@@ -78,11 +78,12 @@ Digest testen: `curl -X POST localhost:8080/triage/digest`
 
 ## Deployment (k3s)
 
-1. CI baut das Image nach `ghcr.io/<owner>/mail_automation` (siehe `.github/workflows/build.yml`).
+1. CI baut das Image nach `ghcr.io/urinet-ch/mail-automation` (siehe `.github/workflows/build.yml`).
 2. `deploy/secret.example.yaml` kopieren, echte Werte eintragen, als Secret anlegen
    (oder SOPS/age-verschlüsselt ins Infra-Repo).
-3. In `deploy/kustomization.yaml` Owner und Image-Tag pinnen, `LMSTUDIO_URL` in
-   `deployment.yaml` auf die Adresse des Inferenz-Rechners setzen.
+3. In `deploy/kustomization.yaml` den Image-Tag auf den gewünschten Stand pinnen
+   (`main-<sha>` oder `vX.Y.Z`), `LMSTUDIO_URL` in `deployment.yaml` auf die Adresse
+   des Inferenz-Rechners setzen.
 4. `kubectl apply -k deploy/`
 
 Metriken liegen auf `/q/metrics` (Prometheus), Health auf `/q/health`. Sinnvoller Alarm:

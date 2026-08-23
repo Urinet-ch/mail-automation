@@ -8,6 +8,6 @@ resources:
   - service.yaml
 
 images:
-  - name: ghcr.io/OWNER/mail_automation
+  - name: ghcr.io/urinet-ch/mail-automation
     # Nach dem ersten CI-Lauf auf den konkreten Tag pinnen (main-<sha> oder vX.Y.Z):
-    newTag: main-000000
+    newTag: main-31d4023
