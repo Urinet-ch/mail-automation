@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mail-automation
+  labels:
+    app: mail-automation
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate # nur eine Instanz darf gleichzeitig auf der Mailbox arbeiten
+  selector:
+    matchLabels:
+      app: mail-automation
+  template:
+    metadata:
+      labels:
+        app: mail-automation
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /q/metrics
+        prometheus.io/port: "8080"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - name: app
+          # Image-Tag wird in kustomization.yaml gepinnt
+          image: ghcr.io/OWNER/mail_automation
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - secretRef:
+                name: mail-automation-secrets
+          env:
+            - name: TZ
+              value: Europe/Zurich
+            - name: LMSTUDIO_URL
+              value: "http://REPLACE-MAC-ADRESSE:1234"
+            - name: LMSTUDIO_MODEL
+              value: "google/gemma-4-26b-a4b"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /q/health/live
+              port: 8080
+            initialDelaySeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /q/health/ready
+              port: 8080
+            initialDelaySeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]

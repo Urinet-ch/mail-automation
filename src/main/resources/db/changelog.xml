@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="001-mailbox-state" author="fabian">
+        <createTable tableName="mailbox_state">
+            <column name="id" type="int">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="uid_validity" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_uid" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="002-triage-record" author="fabian">
+        <createTable tableName="triage_record">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="message_id" type="varchar(512)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uq_triage_message_id"/>
+            </column>
+            <column name="gmail_uid" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="sender" type="varchar(512)"/>
+            <column name="subject" type="varchar(1024)"/>
+            <column name="received_at" type="timestamptz">
+                <constraints nullable="false"/>
+            </column>
+            <column name="kategorie" type="varchar(32)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="aktion" type="varchar(32)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="frist" type="date"/>
+            <column name="zusammenfassung" type="text"/>
+            <column name="confidence" type="double precision">
+                <constraints nullable="false"/>
+            </column>
+            <column name="quelle" type="varchar(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="labels_applied" type="varchar(512)"/>
+            <column name="model_name" type="varchar(128)"/>
+            <column name="processed_at" type="timestamptz">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="triage_record" indexName="ix_triage_processed_at">
+            <column name="processed_at"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="003-pending-mail" author="fabian">
+        <createTable tableName="pending_mail">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="message_id" type="varchar(512)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uq_pending_message_id"/>
+            </column>
+            <column name="gmail_uid" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="grund" type="varchar(1024)"/>
+            <column name="since" type="timestamptz">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+</databaseChangeLog>
