@@ -35,7 +35,7 @@ spec:
             - name: TZ
               value: Europe/Zurich
             - name: LMSTUDIO_URL
-              value: "http://REPLACE-MAC-ADRESSE:1234"
+              value: "http://192.168.113.154:1234"
             - name: LMSTUDIO_MODEL
               value: "google/gemma-4-26b-a4b"
           resources:
