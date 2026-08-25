@@ -109,18 +109,15 @@ Digest testen: `curl -X POST localhost:8080/triage/digest`
 
 ## Deployment (k3s)
 
-> Produktiv wird nicht aus diesem Ordner deployt: die Manifeste liegen als ArgoCD-App unter
-> `apps/mail-automation/` im Infra-Repo `onprem-infrastructure`. `deploy/` hier ist die
-> Vorlage für einen Aufbau ohne GitOps.
+CI baut bei jedem Push auf `main` ein Image nach `ghcr.io/urinet-ch/mail-automation`
+und taggt es mit `main-<sha>` (siehe `.github/workflows/build.yml`). Image-Automation
+ist bewusst aus — der Tag wird von Hand gehoben.
 
-
-1. CI baut das Image nach `ghcr.io/urinet-ch/mail-automation` (siehe `.github/workflows/build.yml`).
-2. `deploy/secret.example.yaml` kopieren, echte Werte eintragen, als Secret anlegen
-   (oder SOPS/age-verschlüsselt ins Infra-Repo).
-3. In `deploy/kustomization.yaml` den Image-Tag auf den gewünschten Stand pinnen
-   (`main-<sha>` oder `vX.Y.Z`), `LMSTUDIO_URL` in `deployment.yaml` auf die Adresse
-   des Inferenz-Rechners setzen.
-4. `kubectl apply -k deploy/`
+**Die Manifeste liegen nicht in diesem Repo**, sondern als ArgoCD-App unter
+`apps/mail-automation/` im Infra-Repo `onprem-infrastructure`; ein `git push` dort löst
+den Rollout aus. Sie zusätzlich hier zu führen hiesse, dieselbe Angabe an zwei Orten zu
+pflegen — und dabei gewinnt in der Praxis die stillere Quelle. Was ein eigenes Deployment
+braucht, steht in [`deploy/README.md`](deploy/README.md).
 
 Metriken liegen auf `/q/metrics` (Prometheus), Health auf `/q/health`. Sinnvoller Alarm:
 `mail_triage_pending > 0` für länger als 24 h (Inferenz-Rechner dauerhaft weg).
