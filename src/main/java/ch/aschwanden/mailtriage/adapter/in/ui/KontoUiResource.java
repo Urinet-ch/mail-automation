@@ -7,6 +7,7 @@ import java.util.Optional;
 
 import org.jboss.logging.Logger;
 
+import ch.aschwanden.mailtriage.application.EinstellungenService;
 import ch.aschwanden.mailtriage.application.KontoService;
 import ch.aschwanden.mailtriage.application.KontoService.KontoFehler;
 import ch.aschwanden.mailtriage.application.TriageService;
@@ -46,10 +47,13 @@ public class KontoUiResource {
     @Inject
     ClassifierPort classifier;
 
+    @Inject
+    EinstellungenService einstellungen;
+
     @CheckedTemplate(basePath = "KontoUi")
     static class Templates {
         static native TemplateInstance liste(List<KontoZeile> konten, boolean classifierErreichbar,
-                String meldung, String fehler);
+                String modellUrl, String meldung, String fehler);
 
         static native TemplateInstance formular(Mailkonto konto, String fehler);
     }
@@ -69,7 +73,8 @@ public class KontoUiResource {
                     s.letzterLauf().map(Instant::toString).orElse("noch nie"),
                     s.lastUid().map(String::valueOf).orElse("-"));
         }).toList();
-        return Templates.liste(zeilen, classifier.isAvailable(), meldung, fehler);
+        return Templates.liste(zeilen, classifier.isAvailable(einstellungen.aktuelle().modellUrl()),
+                einstellungen.aktuelle().modellUrl(), meldung, fehler);
     }
 
     @GET

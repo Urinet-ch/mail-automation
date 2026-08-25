@@ -4,6 +4,7 @@ import org.eclipse.microprofile.health.HealthCheck;
 import org.eclipse.microprofile.health.HealthCheckResponse;
 import org.eclipse.microprofile.health.Readiness;
 
+import ch.aschwanden.mailtriage.application.EinstellungenService;
 import ch.aschwanden.mailtriage.port.ClassifierPort;
 import ch.aschwanden.mailtriage.port.TriageStorePort;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -21,11 +22,14 @@ public class ClassifierHealthCheck implements HealthCheck {
     ClassifierPort classifier;
 
     @Inject
+    EinstellungenService einstellungen;
+
+    @Inject
     TriageStorePort store;
 
     @Override
     public HealthCheckResponse call() {
-        boolean available = classifier.isAvailable();
+        boolean available = classifier.isAvailable(einstellungen.aktuelle().modellUrl());
         return HealthCheckResponse.named("classifier")
                 .up() // bewusst immer up - Details in den Daten
                 .withData("lmStudioErreichbar", available)

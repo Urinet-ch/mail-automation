@@ -4,10 +4,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 import ch.aschwanden.mailtriage.domain.EmailMessage;
+import ch.aschwanden.mailtriage.domain.Einstellungen;
 import ch.aschwanden.mailtriage.domain.Kategorie;
 import ch.aschwanden.mailtriage.domain.Mailkonto;
 import ch.aschwanden.mailtriage.domain.PreFilter;
@@ -45,25 +45,11 @@ public class TriageService {
     KontoStorePort konten;
 
     @Inject
+    EinstellungenService einstellungen;
+
+    @Inject
     MeterRegistry metrics;
 
-    @ConfigProperty(name = "triage.confidence-schwelle", defaultValue = "0.7")
-    double confidenceSchwelle;
-
-    @ConfigProperty(name = "triage.batch-max", defaultValue = "50")
-    int batchMax;
-
-    // Optional statt defaultValue = "": SmallRye kann einen leeren String nicht in eine
-    // List<String> konvertieren und bricht beim Start ab ("Failed to load config value of
-    // type java.util.List"). Ein leerer Wert gilt fuer Optional als "nicht gesetzt" - und
-    // genau das ist der Normalfall, denn beide Muster-Listen sind unkonfiguriert leer.
-    @ConfigProperty(name = "triage.vorfilter.werbung-absender")
-    Optional<List<String>> werbungAbsender;
-
-    @ConfigProperty(name = "triage.vorfilter.benachrichtigung-absender")
-    Optional<List<String>> benachrichtigungAbsender;
-
-    private PreFilter preFilter;
     private Counter verarbeitet;
     private Counter vorfilterTreffer;
     private Counter modellTreffer;
@@ -72,7 +58,6 @@ public class TriageService {
 
     @PostConstruct
     void init() {
-        preFilter = new PreFilter(werbungAbsender.orElse(List.of()), benachrichtigungAbsender.orElse(List.of()));
         verarbeitet = metrics.counter("mail_triage_verarbeitet_total");
         vorfilterTreffer = metrics.counter("mail_triage_entschieden_total", "quelle", "vorfilter");
         modellTreffer = metrics.counter("mail_triage_entschieden_total", "quelle", "modell");
@@ -103,10 +88,13 @@ public class TriageService {
 
     /** Ein Triage-Lauf fuer genau ein Konto. */
     public int run(Mailkonto konto) {
+        // Einmal je Lauf lesen, nicht je Mail: so gilt innerhalb eines Laufs ein
+        // konsistenter Satz, auch wenn waehrenddessen in der UI gespeichert wird.
+        Einstellungen e = einstellungen.aktuelle();
         long uidValidity = mailbox.uidValidity(konto);
         long lastUid = resolveLastUid(konto, uidValidity);
 
-        List<EmailMessage> neue = mailbox.fetchNewerThan(konto, lastUid, batchMax);
+        List<EmailMessage> neue = mailbox.fetchNewerThan(konto, lastUid, e.batchMax());
         if (neue.isEmpty()) {
             return 0;
         }
@@ -114,7 +102,7 @@ public class TriageService {
 
         int count = 0;
         for (EmailMessage mail : neue) {
-            triagiere(konto, mail);
+            triagiere(konto, mail, e);
             // Fortschritt nach JEDER Mail persistieren: ein Absturz mitten im
             // Batch verarbeitet nach Neustart nichts doppelt (zusaetzlich zur
             // Message-ID-Idempotenz).
@@ -124,13 +112,16 @@ public class TriageService {
         return count;
     }
 
-    private void triagiere(Mailkonto konto, EmailMessage mail) {
+    private void triagiere(Mailkonto konto, EmailMessage mail, Einstellungen einst) {
         if (store.isProcessed(konto, mail.messageId())) {
             LOG.debugf("[%s] Bereits verarbeitet: %s", konto.email(), mail.messageId());
             return;
         }
         verarbeitet.increment();
 
+        // Vorfilter je Lauf aus den aktuellen Einstellungen: ein leichtes Objekt, und
+        // so wirkt eine Aenderung der Absenderlisten sofort statt erst nach Neustart.
+        PreFilter preFilter = new PreFilter(einst.werbungAbsender(), einst.benachrichtigungAbsender());
         Optional<TriageResult> vorentscheid = preFilter.pruefe(mail);
         TriageResult result;
         if (vorentscheid.isPresent()) {
@@ -138,7 +129,7 @@ public class TriageService {
             vorfilterTreffer.increment();
         } else {
             try {
-                result = classifier.classify(mail);
+                result = classifier.classify(konto, mail, einst);
                 modellTreffer.increment();
             } catch (ClassifierUnavailableException e) {
                 LOG.infof("[%s] Classifier nicht erreichbar, Mail bleibt vorgemerkt: uid=%d",
@@ -153,7 +144,7 @@ public class TriageService {
             }
         }
 
-        List<String> labels = bestimmeLabels(result);
+        List<String> labels = bestimmeLabels(result, einst.confidenceSchwelle());
         mailbox.applyLabels(konto, mail.uid(), labels);
         store.saveResult(konto, mail, result, labels);
         store.resolvePending(konto, mail.messageId());
@@ -166,13 +157,14 @@ public class TriageService {
      * wieder da ist. Kein Datenverlust bei schlafendem Mac - nur Latenz.
      */
     public int retryPending() {
-        if (store.pendingCountGesamt() == 0 || !classifier.isAvailable()) {
+        Einstellungen einst = einstellungen.aktuelle();
+        if (store.pendingCountGesamt() == 0 || !classifier.isAvailable(einst.modellUrl())) {
             return 0;
         }
         int done = 0;
         for (Mailkonto konto : konten.aktive()) {
             try {
-                done += retryPending(konto);
+                done += retryPending(konto, einst);
             } catch (RuntimeException e) {
                 LOG.errorf(e, "Nachlauf fuer %s fehlgeschlagen: %s", konto.email(), e.getMessage());
             }
@@ -180,22 +172,22 @@ public class TriageService {
         return done;
     }
 
-    private int retryPending(Mailkonto konto) {
+    private int retryPending(Mailkonto konto, Einstellungen einst) {
         int done = 0;
-        for (TriageStorePort.PendingMail pending : store.pending(konto, batchMax)) {
+        for (TriageStorePort.PendingMail pending : store.pending(konto, einst.batchMax())) {
             Optional<EmailMessage> mail = mailbox.fetchByUid(konto, pending.uid());
             if (mail.isEmpty()) {
                 // Mail existiert nicht mehr in der INBOX (von Hand archiviert/verschoben)
                 store.resolvePending(konto, pending.messageId());
                 continue;
             }
-            triagiere(konto, mail.get());
+            triagiere(konto, mail.get(), einst);
             done++;
         }
         return done;
     }
 
-    private List<String> bestimmeLabels(TriageResult result) {
+    private List<String> bestimmeLabels(TriageResult result, double confidenceSchwelle) {
         List<String> labels = new ArrayList<>();
         if (result.quelle() == TriageResult.Quelle.MODELL && result.istUnsicher(confidenceSchwelle)) {
             unsicher.increment();

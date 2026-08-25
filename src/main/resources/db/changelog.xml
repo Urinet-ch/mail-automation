@@ -176,4 +176,26 @@
                           startWith="100" incrementBy="1"/>
     </changeSet>
 
+    <changeSet id="006-einstellung" author="fabian">
+        <comment>
+            Betriebseinstellungen, die zur Laufzeit in der UI aenderbar sind - vor allem die
+            Adresse des Inferenz-Rechners. Sie im Deployment festzunageln passte schlecht dazu,
+            dass der Rechner wechseln kann; ein Wechsel haette sonst einen Git-Push und einen
+            Pod-Neustart verlangt.
+
+            Bewusst Schluessel/Wert statt einer Spalte je Einstellung: die Menge waechst
+            erfahrungsgemaess, und jede neue Einstellung soll keinen Change Set brauchen.
+            Getippt und geprueft wird in der Domaene (Einstellungen), nicht im Schema.
+        </comment>
+        <createTable tableName="einstellung">
+            <column name="schluessel" type="varchar(64)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="wert" type="text"/>
+            <column name="geaendert_am" type="timestamptz">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
 </databaseChangeLog>

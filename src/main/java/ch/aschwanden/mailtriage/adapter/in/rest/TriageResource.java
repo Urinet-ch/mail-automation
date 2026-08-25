@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import ch.aschwanden.mailtriage.application.DigestService;
+import ch.aschwanden.mailtriage.application.EinstellungenService;
 import ch.aschwanden.mailtriage.application.TriageService;
 import ch.aschwanden.mailtriage.domain.Mailkonto;
 import ch.aschwanden.mailtriage.port.ClassifierPort;
@@ -40,6 +41,9 @@ public class TriageResource {
     @Inject
     ClassifierPort classifier;
 
+    @Inject
+    EinstellungenService einstellungen;
+
     @POST
     @Path("/run")
     public Map<String, Object> run() {
@@ -62,7 +66,7 @@ public class TriageResource {
                 .map(this::kontoStatus)
                 .toList();
         return Map.of(
-                "classifierErreichbar", classifier.isAvailable(),
+                "classifierErreichbar", classifier.isAvailable(einstellungen.aktuelle().modellUrl()),
                 "pending", store.pendingCountGesamt(),
                 "konten", proKonto);
     }

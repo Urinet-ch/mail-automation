@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Einstellungen &ndash; Mail-Triage</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 1.5rem;
+           max-width: 42rem; margin-inline: auto; line-height: 1.5; }
+    h1 { font-size: 1.3rem; margin: 0 0 .25rem; }
+    h2 { font-size: 1rem; margin: 2rem 0 .5rem; padding-bottom: .3rem;
+         border-bottom: 1px solid #8883; }
+    .sub { color: #666; margin: 0 0 1rem; font-size: .9rem; }
+    label { display: block; margin-top: 1rem; font-weight: 600; font-size: .9rem; }
+    input { width: 100%; box-sizing: border-box; font: inherit; padding: .45rem .6rem;
+            border: 1px solid #8886; border-radius: .35rem; background: #8881; color: inherit; }
+    .hinweis { color: #666; font-size: .8rem; margin-top: .25rem; font-weight: 400; }
+    .meldung, .fehler { padding: .6rem .8rem; border-radius: .4rem; margin-bottom: 1rem; font-size: .9rem; }
+    .meldung { background: #1a7f3714; border: 1px solid #1a7f3744; }
+    .fehler { background: #cf222e14; border: 1px solid #cf222e44; }
+    .pill { display: inline-block; padding: .1rem .5rem; border-radius: 1rem; font-size: .75rem; }
+    .an { background: #1a7f371f; color: #1a7f37; }
+    .warn { background: #cf222e14; color: #cf222e; }
+    .knoepfe { margin-top: 1.5rem; display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+    button, .knopf { font: inherit; padding: .45rem .9rem; border-radius: .35rem;
+                     border: 1px solid #8886; background: #8881; cursor: pointer; }
+    .primaer { background: #0969da; border-color: #0969da; color: #fff; }
+    .knopf { text-decoration: none; color: inherit; display: inline-block; }
+    form.inline { display: inline; }
+    .zwei { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1rem; }
+    @media (max-width: 30rem) { .zwei { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <h1>Einstellungen</h1>
+  <p class="sub">
+    Gilt sofort für den nächsten Triage-Lauf, ohne Neustart.
+    Zurück zur <a href="/ui">Kontoübersicht</a>.
+  </p>
+
+  {#if meldung}<div class="meldung">{meldung}</div>{/if}
+  {#if fehler}<div class="fehler">{fehler}</div>{/if}
+
+  <form method="post" action="/ui/einstellungen">
+    <h2>Modell</h2>
+
+    <label>
+      Adresse des Inferenz-Rechners
+      <input type="url" name="modellUrl" value="{e.modellUrl}" required
+             placeholder="http://192.168.1.50:1234">
+      <div class="hinweis">
+        Status:
+        {#if erreichbar}<span class="pill an">erreichbar</span>
+        {#else}<span class="pill warn">nicht erreichbar</span>{/if}
+        &mdash; LM Studio muss an die Netzwerkschnittstelle gebunden sein
+        (<code>lms server start --bind 0.0.0.0</code>), nicht nur an <code>127.0.0.1</code>.
+        Ein Tailscale-Name ist stabiler als eine DHCP-Adresse.
+      </div>
+    </label>
+
+    <label>
+      Modellname
+      <input type="text" name="modellName" value="{e.modellName}" required>
+      <div class="hinweis">Wie in <code>lms ps</code> angezeigt. LM Studio löst auch
+        ähnliche Bezeichner auf.</div>
+    </label>
+
+    <div class="zwei">
+      <label>
+        Temperatur
+        <input type="text" name="temperatur" value="{e.temperatur}">
+        <div class="hinweis">0 = reproduzierbar. Für Klassifikation gewollt.</div>
+      </label>
+      <label>
+        Confidence-Schwelle
+        <input type="text" name="confidenceSchwelle" value="{e.confidenceSchwelle}">
+        <div class="hinweis">Darunter wird nur <code>Unsicher</code> gesetzt (0&ndash;1).</div>
+      </label>
+    </div>
+
+    <h2>Triage</h2>
+
+    <label>
+      Mails pro Lauf
+      <input type="text" name="batchMax" value="{e.batchMax}">
+      <div class="hinweis">Obergrenze je Lauf und Konto. Der Rest folgt im nächsten Lauf.</div>
+    </label>
+
+    <label>
+      Absender &rarr; Werbung
+      <input type="text" name="werbungAbsender" value="{e.werbungAlsListe}"
+             placeholder="news.aldi, shop@">
+    </label>
+
+    <label>
+      Absender &rarr; Benachrichtigung
+      <input type="text" name="benachrichtigungAbsender" value="{e.benachrichtigungAlsListe}"
+             placeholder="noreply-accounts@google.com">
+      <div class="hinweis">
+        Kommagetrennte Teilzeichenfolgen, Gross-/Kleinschreibung egal. Treffer werden
+        <strong>ohne Modell</strong> entschieden &mdash; schneller, und ein Fehlurteil
+        ist dort konstruktiv unmöglich.
+      </div>
+    </label>
+
+    <div class="knoepfe">
+      <button class="primaer" type="submit">Speichern</button>
+      <a class="knopf" href="/ui">Abbrechen</a>
+    </div>
+  </form>
+
+  <div class="knoepfe">
+    <form class="inline" method="post" action="/ui/einstellungen/test">
+      <input type="hidden" name="modellUrl" value="{e.modellUrl}">
+      <button type="submit">Verbindung testen</button>
+    </form>
+    <form class="inline" method="post" action="/ui/einstellungen/vorgaben"
+          onsubmit="return confirm('Alle Einstellungen auf die Werte aus dem Deployment zuruecksetzen?');">
+      <button type="submit">Auf Deployment-Werte zurücksetzen</button>
+    </form>
+  </div>
+
+  <p class="hinweis" style="margin-top:1.5rem">
+    Was hier gespeichert ist, überstimmt die Umgebungsvariablen des Deployments
+    (<code>LMSTUDIO_URL</code>, <code>LMSTUDIO_MODEL</code> &hellip;). Diese dienen nur noch
+    als Ausgangswert. Poll-Intervall und Digest-Zeitpunkt bleiben bewusst
+    Deployment-Sache &mdash; sie werden beim Start in den Scheduler eingehängt.
+  </p>
+</body>
+</html>

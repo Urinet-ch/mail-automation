@@ -44,11 +44,16 @@
           <span class="pill an">Modell erreichbar</span>
         {#else}
           <span class="pill warn">Modell nicht erreichbar</span>
-          &ndash; neue Mails sammeln sich in der Warteschlange und werden nachgeholt.
+          unter <code>{modellUrl}</code> &ndash; neue Mails sammeln sich in der
+          Warteschlange und werden nachgeholt.
+          <a href="/ui/einstellungen">Adresse ändern</a>.
         {/if}
       </p>
     </div>
-    <a class="knopf primaer" href="/ui/neu">Konto hinzufuegen</a>
+    <div class="aktionen">
+      <a class="knopf" href="/ui/einstellungen">Einstellungen</a>
+      <a class="knopf primaer" href="/ui/neu">Konto hinzufuegen</a>
+    </div>
   </div>
 
   {#if meldung}<div class="meldung">{meldung}</div>{/if}

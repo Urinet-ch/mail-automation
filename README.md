@@ -86,6 +86,32 @@ Serverseitig gerenderte Oberfläche, bewusst schlicht — Liste der Postfächer 
 Ohne Ingress erreichbar über
 `kubectl -n smarthome port-forward svc/mail-automation 8080:8080` → <http://localhost:8080/ui>.
 
+## Einstellungen (`/ui/einstellungen`)
+
+Was sich im Betrieb ändert, ohne dass sich das Deployment ändert — allen voran die
+**Adresse des Inferenz-Rechners**. Ein Wechsel des Macs verlangte sonst einen Git-Push
+und einen Pod-Neustart.
+
+| Einstellung | Bedeutung |
+|---|---|
+| Modell-URL | Adresse von LM Studio. Ein Tailscale-Name ist stabiler als eine DHCP-Adresse |
+| Modellname | wie in `lms ps` |
+| Temperatur | 0 = reproduzierbar, für Klassifikation gewollt |
+| Confidence-Schwelle | darunter wird nur `AI/Unsicher` gesetzt |
+| Mails pro Lauf | Obergrenze je Lauf und Konto |
+| Absender → Werbung / Benachrichtigung | Vorfilter, ohne Modell entschieden |
+
+Alles gilt **sofort für den nächsten Lauf**, ohne Neustart. Gespeicherte Werte
+überstimmen die Umgebungsvariablen (`LMSTUDIO_URL`, `LMSTUDIO_MODEL` …); diese sind nur
+noch der Ausgangswert. Ein Knopf setzt auf sie zurück.
+
+Der Verbindungstest ist **keine Bedingung fürs Speichern**: Ein schlafender Mac ist
+Normalbetrieb (Grundsatz 6) — wäre die Erreichbarkeit Pflicht, liesse sich die Adresse
+eines ausgeschalteten Rechners nie eintragen, also genau dann nicht, wenn man es braucht.
+
+Poll-Intervall und Digest-Zeitpunkt bleiben bewusst Deployment-Sache: sie werden beim
+Start in den Scheduler eingehängt.
+
 ## Voraussetzungen
 
 - Gmail-Konto mit 2FA und App-Passwort (Konto → Sicherheit → App-Passwörter)
@@ -129,12 +155,12 @@ Metriken liegen auf `/q/metrics` (Prometheus), Health auf `/q/health`. Sinnvolle
 | `TRIAGE_CRYPTO_KEY` | — | 32 Byte base64, verschlüsselt die Kontopasswörter (Pflicht, sobald ein Konto existiert) |
 | `GMAIL_USER` | leer | **Alt-Konfiguration.** Steht sie noch, wird sie beim Start einmalig als Konto übernommen; danach entfernbar |
 | `GMAIL_APP_PASSWORD` | leer | ebenso |
-| `LMSTUDIO_URL` | `http://localhost:1234` | LM-Studio-Server |
-| `LMSTUDIO_MODEL` | `google/gemma-4-26b-a4b` | Modellname wie in `lms ps` |
+| `LMSTUDIO_URL` | `http://localhost:1234` | **Ausgangswert** für die Modell-Adresse; danach in `/ui/einstellungen` gepflegt |
+| `LMSTUDIO_MODEL` | `google/gemma-4-26b-a4b` | ebenso, Modellname wie in `lms ps` |
 | `TRIAGE_POLL_INTERVAL` | `10m` | Poll-Intervall |
 | `DIGEST_CRON` | `0 0 7 * * ?` | Digest-Zeitpunkt (Quartz, TZ des Containers) |
-| `TRIAGE_WERBUNG_ABSENDER` | leer | Absender-Muster → Werbung ohne Modell |
-| `TRIAGE_BENACHRICHTIGUNG_ABSENDER` | leer | Absender-Muster → Benachrichtigung ohne Modell |
+| `TRIAGE_WERBUNG_ABSENDER` | leer | Ausgangswert; danach in `/ui/einstellungen` |
+| `TRIAGE_BENACHRICHTIGUNG_ABSENDER` | leer | ebenso |
 | `DB_URL` / `DB_USER` / `DB_PASSWORD` | — | PostgreSQL |
 
 ## Entstehung
