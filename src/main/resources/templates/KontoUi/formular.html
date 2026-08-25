@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{#if konto}Konto bearbeiten{#else}Konto hinzufuegen{/if} &ndash; Mail-Triage</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 1.5rem;
+           max-width: 38rem; margin-inline: auto; line-height: 1.5; }
+    h1 { font-size: 1.3rem; margin: 0 0 1.25rem; }
+    label { display: block; margin-top: 1rem; font-weight: 600; font-size: .9rem; }
+    input { width: 100%; box-sizing: border-box; font: inherit; padding: .45rem .6rem;
+            border: 1px solid #8886; border-radius: .35rem; background: #8881; color: inherit; }
+    input[readonly] { opacity: .6; }
+    .hinweis { color: #666; font-size: .8rem; margin-top: .25rem; font-weight: 400; }
+    .fehler { background: #cf222e14; border: 1px solid #cf222e44; padding: .6rem .8rem;
+              border-radius: .4rem; margin-bottom: 1rem; font-size: .9rem; }
+    .knoepfe { margin-top: 1.5rem; display: flex; gap: .5rem; align-items: center; }
+    button, .knopf { font: inherit; padding: .45rem .9rem; border-radius: .35rem;
+                     border: 1px solid #8886; background: #8881; cursor: pointer; }
+    .primaer { background: #0969da; border-color: #0969da; color: #fff; }
+    .knopf { text-decoration: none; color: inherit; display: inline-block; }
+  </style>
+</head>
+<body>
+  <h1>{#if konto}Konto bearbeiten{#else}Postfach hinzufuegen{/if}</h1>
+
+  {#if fehler}<div class="fehler">{fehler}</div>{/if}
+
+  <form method="post" action="{#if konto}/ui/{konto.id}{#else}/ui{/if}">
+    <label>
+      Anzeigename
+      <input type="text" name="name" value="{#if konto}{konto.name}{/if}"
+             placeholder="Privat" autocomplete="off">
+    </label>
+
+    <label>
+      E-Mail-Adresse
+      {#if konto}
+        <input type="email" value="{konto.email}" readonly>
+        <div class="hinweis">
+          Nicht aenderbar: an der Adresse haengt der gesamte Verarbeitungszustand.
+          Ein anderes Postfach ist ein neues Konto.
+        </div>
+      {#else}
+        <input type="email" name="email" required placeholder="name@gmail.com" autocomplete="off">
+      {/if}
+    </label>
+
+    <label>
+      App-Passwort
+      <input type="password" name="appPasswort" autocomplete="new-password"
+             {#if !konto}required{/if}
+             placeholder="{#if konto}leer lassen, um es beizubehalten{#else}16 Zeichen{/if}">
+      <div class="hinweis">
+        Das 16-stellige App-Passwort aus dem Google-Konto (Sicherheit &rarr; App-Passwoerter),
+        nicht das Kontopasswort. Leerzeichen darfst du mitkopieren, sie werden entfernt.
+        Gespeichert wird es verschluesselt.
+      </div>
+    </label>
+
+    <label>
+      Label-Praefix
+      <input type="text" name="labelPrefix" value="{#if konto}{konto.labelPrefix}{#else}AI/{/if}"
+             placeholder="AI/">
+      <div class="hinweis">
+        Namensraum der gesetzten Labels. Die Anwendung kann ausserhalb dieses Praefix
+        nichts setzen und entfernt grundsaetzlich nichts.
+      </div>
+    </label>
+
+    <div class="knoepfe">
+      <button class="primaer" type="submit">
+        {#if konto}Speichern{#else}Anmelden und anlegen{/if}
+      </button>
+      <a class="knopf" href="/ui">Abbrechen</a>
+    </div>
+    <p class="hinweis">
+      Beim Speichern meldet sich die Anwendung testweise am Postfach an. Schlaegt das fehl,
+      wird nichts gespeichert.
+    </p>
+  </form>
+</body>
+</html>

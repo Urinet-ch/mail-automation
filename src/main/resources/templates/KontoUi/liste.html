@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mail-Triage &ndash; Konten</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 1.5rem;
+           max-width: 60rem; margin-inline: auto; line-height: 1.5; }
+    h1 { font-size: 1.4rem; margin: 0 0 .25rem; }
+    .sub { color: #666; margin: 0 0 1.5rem; font-size: .9rem; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid #ccc4; vertical-align: top; }
+    th { font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; color: #666; }
+    td.zahl { text-align: right; font-variant-numeric: tabular-nums; }
+    .konto { font-weight: 600; }
+    .klein { color: #666; font-size: .8rem; }
+    .pill { display: inline-block; padding: .1rem .5rem; border-radius: 1rem; font-size: .75rem; }
+    .an { background: #1a7f371f; color: #1a7f37; }
+    .aus { background: #9a6a001f; color: #9a6a00; }
+    .warn { background: #cf222e14; color: #cf222e; }
+    .meldung, .fehler { padding: .6rem .8rem; border-radius: .4rem; margin-bottom: 1rem; font-size: .9rem; }
+    .meldung { background: #1a7f3714; border: 1px solid #1a7f3744; }
+    .fehler { background: #cf222e14; border: 1px solid #cf222e44; }
+    form.inline { display: inline; }
+    button, .knopf { font: inherit; padding: .3rem .7rem; border-radius: .35rem;
+                     border: 1px solid #8886; background: #8881; cursor: pointer; }
+    button:hover, .knopf:hover { background: #8883; }
+    .knopf { text-decoration: none; color: inherit; display: inline-block; }
+    .primaer { background: #0969da; border-color: #0969da; color: #fff; }
+    .aktionen { display: flex; gap: .35rem; flex-wrap: wrap; }
+    .kopf { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+    .leer { padding: 2rem; text-align: center; color: #666; border: 1px dashed #8886; border-radius: .5rem; }
+  </style>
+</head>
+<body>
+  <div class="kopf">
+    <div>
+      <h1>Mail-Triage</h1>
+      <p class="sub">
+        Postfaecher, die automatisch klassifiziert werden.
+        {#if classifierErreichbar}
+          <span class="pill an">Modell erreichbar</span>
+        {#else}
+          <span class="pill warn">Modell nicht erreichbar</span>
+          &ndash; neue Mails sammeln sich in der Warteschlange und werden nachgeholt.
+        {/if}
+      </p>
+    </div>
+    <a class="knopf primaer" href="/ui/neu">Konto hinzufuegen</a>
+  </div>
+
+  {#if meldung}<div class="meldung">{meldung}</div>{/if}
+  {#if fehler}<div class="fehler">{fehler}</div>{/if}
+
+  {#if konten.isEmpty()}
+    <div class="leer">
+      Noch kein Konto erfasst. <a href="/ui/neu">Erstes Postfach hinzufuegen</a>.
+    </div>
+  {#else}
+    <table>
+      <thead>
+        <tr>
+          <th>Postfach</th>
+          <th>Status</th>
+          <th class="zahl">Verarbeitet</th>
+          <th class="zahl">Wartend</th>
+          <th>Zuletzt</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {#for k in konten}
+        <tr>
+          <td>
+            <div class="konto">{k.name}</div>
+            <div class="klein">{k.email}</div>
+            <div class="klein">Labels unter {k.labelPrefix} &middot; UID {k.lastUid}</div>
+          </td>
+          <td>
+            {#if k.aktiv}<span class="pill an">aktiv</span>
+            {#else}<span class="pill aus">pausiert</span>{/if}
+          </td>
+          <td class="zahl">{k.verarbeitet}</td>
+          <td class="zahl">
+            {#if k.pending > 0}<span class="pill warn">{k.pending}</span>{#else}0{/if}
+          </td>
+          <td class="klein">{k.letzterLauf}</td>
+          <td>
+            <div class="aktionen">
+              <a class="knopf" href="/ui/{k.id}/bearbeiten">Bearbeiten</a>
+              <form class="inline" method="post" action="/ui/{k.id}/lauf">
+                <button type="submit">Jetzt pruefen</button>
+              </form>
+              <form class="inline" method="post" action="/ui/{k.id}/aktiv">
+                <input type="hidden" name="aktiv" value="{#if k.aktiv}false{#else}true{/if}">
+                <button type="submit">{#if k.aktiv}Pausieren{#else}Aktivieren{/if}</button>
+              </form>
+              <form class="inline" method="post" action="/ui/{k.id}/loeschen"
+                    onsubmit="return confirm('Konto {k.email} und seinen gesamten Verlauf loeschen? Gesetzte Labels bleiben in der Mailbox.');">
+                <button type="submit">Loeschen</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {/for}
+      </tbody>
+    </table>
+  {/if}
+</body>
+</html>

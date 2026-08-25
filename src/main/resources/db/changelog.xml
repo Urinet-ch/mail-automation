@@ -78,4 +78,102 @@
         </createTable>
     </changeSet>
 
+    <changeSet id="004-mailkonto" author="fabian">
+        <comment>
+            Mehrkonten-Faehigkeit: Konten werden zur Laufzeit ueber die UI verwaltet, nicht
+            mehr ueber Umgebungsvariablen. Das App-Passwort liegt AES-GCM-verschluesselt in
+            app_passwort_enc; der Schluessel bleibt im k8s-Secret und nie in der Datenbank.
+        </comment>
+        <createTable tableName="mailkonto">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="varchar(128)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="email" type="varchar(320)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uq_mailkonto_email"/>
+            </column>
+            <column name="imap_host" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="imap_port" type="int">
+                <constraints nullable="false"/>
+            </column>
+            <column name="smtp_host" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="smtp_port" type="int">
+                <constraints nullable="false"/>
+            </column>
+            <column name="label_prefix" type="varchar(32)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="app_passwort_enc" type="text">
+                <constraints nullable="false"/>
+            </column>
+            <column name="aktiv" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="erstellt_am" type="timestamptz">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="005-kontobezug" author="fabian">
+        <comment>
+            Kontobezug fuer Zustand, Audit-Log und Warteschlange. konto_id ist zunaechst
+            nullable: die bestehende Zeile bzw. die bestehenden Datensaetze stammen aus der
+            Ein-Konto-Zeit und werden beim ersten Start dem aus der Umgebung uebernommenen
+            Konto zugeordnet (KontoBootstrap). Danach setzt 006 die Spalte auf NOT NULL.
+
+            Die Eindeutigkeit der message_id gilt neu je Konto: dieselbe Mail kann in zwei
+            Postfaechern liegen (CC, Verteiler) und muss dann auch zweimal triagiert werden.
+        </comment>
+        <addColumn tableName="mailbox_state">
+            <column name="konto_id" type="bigint"/>
+        </addColumn>
+        <addColumn tableName="triage_record">
+            <column name="konto_id" type="bigint"/>
+        </addColumn>
+        <addColumn tableName="pending_mail">
+            <column name="konto_id" type="bigint"/>
+        </addColumn>
+
+        <dropUniqueConstraint tableName="triage_record" constraintName="uq_triage_message_id"/>
+        <dropUniqueConstraint tableName="pending_mail" constraintName="uq_pending_message_id"/>
+
+        <addUniqueConstraint tableName="triage_record" columnNames="konto_id, message_id"
+                             constraintName="uq_triage_konto_message"/>
+        <addUniqueConstraint tableName="pending_mail" columnNames="konto_id, message_id"
+                             constraintName="uq_pending_konto_message"/>
+
+        <addForeignKeyConstraint baseTableName="mailbox_state" baseColumnNames="konto_id"
+                                 constraintName="fk_mailbox_state_konto"
+                                 referencedTableName="mailkonto" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="triage_record" baseColumnNames="konto_id"
+                                 constraintName="fk_triage_record_konto"
+                                 referencedTableName="mailkonto" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="pending_mail" baseColumnNames="konto_id"
+                                 constraintName="fk_pending_mail_konto"
+                                 referencedTableName="mailkonto" referencedColumnNames="id"/>
+
+        <createIndex tableName="triage_record" indexName="ix_triage_konto_processed">
+            <column name="konto_id"/>
+            <column name="processed_at"/>
+        </createIndex>
+
+        <!-- Je Konto genau ein Zustand. Bewusst UNIQUE statt NOT NULL: die Altzeile aus der
+             Ein-Konto-Zeit hat noch kein Konto, und Postgres laesst mehrere NULL zu. Den
+             Bezug setzt KontoBootstrap beim ersten Start; erzwungen wird er im Code. -->
+        <addUniqueConstraint tableName="mailbox_state" columnNames="konto_id"
+                             constraintName="uq_mailbox_state_konto"/>
+
+        <!-- mailbox_state.id war fest 1, weil es nur eine Zeile gab. Ab jetzt vergibt die
+             Datenbank die id; startWith liegt ueber der Altzeile, damit nichts kollidiert. -->
+        <addAutoIncrement tableName="mailbox_state" columnName="id" columnDataType="int"
+                          startWith="100" incrementBy="1"/>
+    </changeSet>
+
 </databaseChangeLog>

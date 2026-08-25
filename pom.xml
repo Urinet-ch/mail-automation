@@ -51,6 +51,13 @@
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-rest-jackson</artifactId>
     </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <!-- Serverseitige UI zur Kontoverwaltung. Bewusst Qute statt Angular/Quinoa:
+           fuer ein Admin-Formular in einem Hintergrunddienst waere ein Node-Build
+           in der CI und ein groesseres Image der falsche Preis. -->
+      <artifactId>quarkus-rest-qute</artifactId>
+    </dependency>
 
     <!-- LM Studio (OpenAI-kompatible API) -->
     <dependency>

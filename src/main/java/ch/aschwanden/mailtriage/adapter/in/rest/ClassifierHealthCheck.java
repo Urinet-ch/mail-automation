@@ -29,7 +29,7 @@ public class ClassifierHealthCheck implements HealthCheck {
         return HealthCheckResponse.named("classifier")
                 .up() // bewusst immer up - Details in den Daten
                 .withData("lmStudioErreichbar", available)
-                .withData("pendingMails", store.pendingCount())
+                .withData("pendingMails", store.pendingCountGesamt())
                 .build();
     }
 }

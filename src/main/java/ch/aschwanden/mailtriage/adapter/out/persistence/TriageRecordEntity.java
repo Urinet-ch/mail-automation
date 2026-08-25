@@ -20,6 +20,11 @@ public class TriageRecordEntity extends PanacheEntityBase {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     public Long id;
 
+    /** Bezug zum Konto. Nullable nur wegen der Altdaten aus der Ein-Konto-Zeit;
+     *  KontoBootstrap traegt sie beim ersten Start nach. */
+    @Column(name = "konto_id")
+    public Long kontoId;
+
     @Column(name = "message_id", nullable = false, unique = true, length = 512)
     public String messageId;
 

@@ -7,6 +7,10 @@ Alle 10 Minuten werden neue Mails geholt, klassifiziert (Kategorie + **Aktion** 
 in Gmail unter `AI/…`-Labels sichtbar gemacht. Täglich um 07:00 kommt ein Digest als Mail an
 das eigene Konto: „Was muss ich tun" zuerst, sortiert nach Frist.
 
+**Mehrere Postfächer** werden über eine kleine Weboberfläche unter `/ui` verwaltet — anlegen,
+pausieren, löschen, ohne Deployment. Jedes Konto hat seinen eigenen Verarbeitungszustand,
+seinen eigenen Digest und seinen eigenen Label-Namensraum.
+
 ```
                        ┌─────────────────────────────┐
    @Scheduled 10min ──▶│  TriageService              │
@@ -41,6 +45,9 @@ das eigene Konto: „Was muss ich tun" zuerst, sortiert nach Frist.
 6. **Schlafender Mac ist Normalbetrieb.** Ist LM Studio nicht erreichbar, bleiben Mails
    in der Pending-Queue und werden nachgeholt. Kein Datenverlust, nur Latenz — sichtbar
    über die Metrik `mail_triage_pending`.
+7. **Konten sind getrennt.** Zustand, Audit-Log und Digest sind je Postfach eigen; ein
+   Digest geht immer nur an das Konto, aus dem er stammt. Postfächer sehen einander nicht.
+   Ein Konto, dessen Anmeldung scheitert, hält die anderen nicht auf.
 
 ## Klassifikation
 
@@ -54,6 +61,30 @@ das eigene Konto: „Was muss ich tun" zuerst, sortiert nach Frist.
 Gesetzte Labels: `AI/<Kategorie>` und bei Handlungsbedarf zusätzlich `AI/Aktion-<Aktion>`.
 Tipp: Gmail-Suche `label:ai-aktion-bezahlen OR label:ai-aktion-antworten OR
 label:ai-aktion-erledigen OR label:ai-aktion-termin` als Lesezeichen = To-do-Sicht.
+
+## Kontoverwaltung (`/ui`)
+
+Serverseitig gerenderte Oberfläche, bewusst schlicht — Liste der Postfächer mit Kennzahlen
+(verarbeitet, wartend, letzter Lauf, aktuelle UID) und ein Formular zum Anlegen.
+
+- **Beim Anlegen wird die Anmeldung geprüft.** Schlägt sie fehl, wird nichts gespeichert —
+  sonst stünde ein totes Konto in der Liste und der Fehler erschiene erst Minuten später
+  im Log.
+- **App-Passwörter liegen AES-256-GCM-verschlüsselt in der Datenbank.** Der Schlüssel
+  (`TRIAGE_CRYPTO_KEY`) kommt aus der Umgebung und nie aus der Datenbank: wer nur einen
+  Dump hat — etwa aus dem Backup — kann die Passwörter nicht lesen. Erzeugen mit
+  `openssl rand -base64 32`.
+- **Die Adresse eines Kontos ist unveränderlich.** An ihr hängt der gesamte
+  Verarbeitungszustand; ein anderes Postfach ist ein neues Konto.
+- **Löschen entfernt Konto und Verlauf**, nicht aber die in Gmail gesetzten Labels — die
+  Anwendung nimmt grundsätzlich nichts aus einem Postfach heraus.
+- **Zugriffsschutz liegt beim Ingress** (Basic Auth). Zusätzlich weist die Anwendung
+  schreibende Aufrufe fremder Herkunft ab: der Browser sendet Basic-Auth-Daten bei jeder
+  Anfrage an den Host automatisch mit, auch bei einem Formular, das eine fremde Seite
+  abschickt — und SameSite hilft nicht, weil Basic Auth kein Cookie ist.
+
+Ohne Ingress erreichbar über
+`kubectl -n smarthome port-forward svc/mail-automation 8080:8080` → <http://localhost:8080/ui>.
 
 ## Voraussetzungen
 
@@ -78,6 +109,11 @@ Digest testen: `curl -X POST localhost:8080/triage/digest`
 
 ## Deployment (k3s)
 
+> Produktiv wird nicht aus diesem Ordner deployt: die Manifeste liegen als ArgoCD-App unter
+> `apps/mail-automation/` im Infra-Repo `onprem-infrastructure`. `deploy/` hier ist die
+> Vorlage für einen Aufbau ohne GitOps.
+
+
 1. CI baut das Image nach `ghcr.io/urinet-ch/mail-automation` (siehe `.github/workflows/build.yml`).
 2. `deploy/secret.example.yaml` kopieren, echte Werte eintragen, als Secret anlegen
    (oder SOPS/age-verschlüsselt ins Infra-Repo).
@@ -93,8 +129,9 @@ Metriken liegen auf `/q/metrics` (Prometheus), Health auf `/q/health`. Sinnvolle
 
 | Env | Default | Bedeutung |
 |---|---|---|
-| `GMAIL_USER` | — | Gmail-Adresse (Pflicht) |
-| `GMAIL_APP_PASSWORD` | — | App-Passwort (Pflicht) |
+| `TRIAGE_CRYPTO_KEY` | — | 32 Byte base64, verschlüsselt die Kontopasswörter (Pflicht, sobald ein Konto existiert) |
+| `GMAIL_USER` | leer | **Alt-Konfiguration.** Steht sie noch, wird sie beim Start einmalig als Konto übernommen; danach entfernbar |
+| `GMAIL_APP_PASSWORD` | leer | ebenso |
 | `LMSTUDIO_URL` | `http://localhost:1234` | LM-Studio-Server |
 | `LMSTUDIO_MODEL` | `google/gemma-4-26b-a4b` | Modellname wie in `lms ps` |
 | `TRIAGE_POLL_INTERVAL` | `10m` | Poll-Intervall |

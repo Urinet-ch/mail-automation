@@ -1,5 +1,7 @@
 package ch.aschwanden.mailtriage.port;
 
+import ch.aschwanden.mailtriage.domain.Mailkonto;
+
 /**
  * Driven Port fuer den Tages-Digest. Der Digest enthaelt Mail-Inhalte und geht
  * deshalb NIE ueber einen oeffentlichen Push-Dienst, sondern als Mail an das
@@ -7,6 +9,10 @@ package ch.aschwanden.mailtriage.port;
  */
 public interface DigestMailPort {
 
-    /** Sendet den Digest als Mail an die eigene Adresse. */
-    void sendToSelf(String subject, String textBody);
+    /**
+     * Sendet den Digest an die Adresse des Kontos selbst. Der Empfaenger ist nicht
+     * waehlbar: er ist immer {@code konto.email()}, damit aus dem einzigen Sendeweg
+     * der Anwendung kein Versandweg nach aussen werden kann.
+     */
+    void sendToSelf(Mailkonto konto, String subject, String textBody);
 }

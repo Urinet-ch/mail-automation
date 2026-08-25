@@ -1,10 +1,14 @@
 package ch.aschwanden.mailtriage.adapter.in.rest;
 
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import ch.aschwanden.mailtriage.application.DigestService;
 import ch.aschwanden.mailtriage.application.TriageService;
+import ch.aschwanden.mailtriage.domain.Mailkonto;
 import ch.aschwanden.mailtriage.port.ClassifierPort;
+import ch.aschwanden.mailtriage.port.KontoStorePort;
 import ch.aschwanden.mailtriage.port.TriageStorePort;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
@@ -31,6 +35,9 @@ public class TriageResource {
     TriageStorePort store;
 
     @Inject
+    KontoStorePort konten;
+
+    @Inject
     ClassifierPort classifier;
 
     @POST
@@ -51,11 +58,25 @@ public class TriageResource {
     @GET
     @Path("/status")
     public Map<String, Object> status() {
+        List<Map<String, Object>> proKonto = konten.alle().stream()
+                .map(this::kontoStatus)
+                .toList();
         return Map.of(
                 "classifierErreichbar", classifier.isAvailable(),
-                "pending", store.pendingCount(),
-                "mailboxState", store.mailboxState()
-                        .map(s -> Map.of("uidValidity", s.uidValidity(), "lastUid", s.lastUid()))
-                        .orElse(Map.of()));
+                "pending", store.pendingCountGesamt(),
+                "konten", proKonto);
+    }
+
+    private Map<String, Object> kontoStatus(Mailkonto konto) {
+        TriageStorePort.KontoStatistik s = store.statistik(konto);
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("email", konto.email());
+        m.put("aktiv", konto.aktiv());
+        m.put("verarbeitet", s.verarbeitet());
+        m.put("pending", s.pending());
+        // Nullable Werte: Map.of vertraegt kein null, deshalb LinkedHashMap.
+        m.put("lastUid", s.lastUid().orElse(null));
+        m.put("letzterLauf", s.letzterLauf().map(Object::toString).orElse(null));
+        return m;
     }
 }
