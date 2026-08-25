@@ -48,11 +48,15 @@ public class TriageService {
     @ConfigProperty(name = "triage.batch-max", defaultValue = "50")
     int batchMax;
 
-    @ConfigProperty(name = "triage.vorfilter.werbung-absender", defaultValue = "")
-    List<String> werbungAbsender;
+    // Optional statt defaultValue = "": SmallRye kann einen leeren String nicht in eine
+    // List<String> konvertieren und bricht beim Start ab ("Failed to load config value of
+    // type java.util.List"). Ein leerer Wert gilt fuer Optional als "nicht gesetzt" - und
+    // genau das ist der Normalfall, denn beide Muster-Listen sind unkonfiguriert leer.
+    @ConfigProperty(name = "triage.vorfilter.werbung-absender")
+    Optional<List<String>> werbungAbsender;
 
-    @ConfigProperty(name = "triage.vorfilter.benachrichtigung-absender", defaultValue = "")
-    List<String> benachrichtigungAbsender;
+    @ConfigProperty(name = "triage.vorfilter.benachrichtigung-absender")
+    Optional<List<String>> benachrichtigungAbsender;
 
     private PreFilter preFilter;
     private Counter verarbeitet;
@@ -63,7 +67,7 @@ public class TriageService {
 
     @PostConstruct
     void init() {
-        preFilter = new PreFilter(werbungAbsender, benachrichtigungAbsender);
+        preFilter = new PreFilter(werbungAbsender.orElse(List.of()), benachrichtigungAbsender.orElse(List.of()));
         verarbeitet = metrics.counter("mail_triage_verarbeitet_total");
         vorfilterTreffer = metrics.counter("mail_triage_entschieden_total", "quelle", "vorfilter");
         modellTreffer = metrics.counter("mail_triage_entschieden_total", "quelle", "modell");
