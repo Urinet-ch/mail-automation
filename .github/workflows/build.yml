@@ -5,6 +5,8 @@ on:
     branches: [main]
     tags: ['v*']
   pull_request:
+  # Neubau ohne Code-Aenderung, z.B. wenn das Basis-Image ein Java-Update erhaelt
+  workflow_dispatch:
 
 env:
   IMAGE: ghcr.io/${{ github.repository }}
